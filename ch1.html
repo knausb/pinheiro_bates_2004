@@ -122,6 +122,17 @@ $(document).ready(function () {
 
 </div>
 
+<div id="TOC">
+<ul>
+<li><a href="#a-simple-example-of-random-effects">1.1 A simple example of random effects</a></li>
+<li><a href="#a-randomized-block-design">1.2 A randomized block design</a></li>
+<li><a href="#choosing-contrasts-for-fixed-effects-terms">1.2 Choosing contrasts for fixed-effects terms</a></li>
+<li><a href="#mixed-effects-models-for-replicated-blocked-designs">1.3 Mixed-effects models for replicated, blocked designs</a></li>
+<li><a href="#an-analysis-of-covariance-model">1.4 An analysis of covariance model</a></li>
+<li><a href="#models-for-nested-classification-factors">1.5 Models for nested classification factors</a></li>
+<li><a href="#a-split-plot-experiment">1.6 A split-plot experiment</a></li>
+</ul>
+</div>
 
 <div id="a-simple-example-of-random-effects" class="section level2">
 <h2>1.1 A simple example of random effects</h2>
@@ -477,7 +488,164 @@ interaction.plot(Machine, Worker, score, las = 1)</code></pre>
 y_{ijk} = \beta_{j} + b_{i} + \epsilon_{ijk}, i = 1, ..., 6, j = 1, ..., 3, k = 1, ..., 3,\\
 b_{i} ~\sim N(o, \sigma^{2}_{b}), \epsilon_{ijk} \sim N(0, \sigma^{2}) (1.7)
 \]</span></p>
+<p>This differs from equation 1.6 in that the response (<span class="math inline">\(y\)</span>) and the error (<span class="math inline">\(\epsilon\)</span>) include an additional counter (<span class="math inline">\(k\)</span>) to iterate over the replicates.</p>
+<pre class="r"><code>fm1Machine &lt;- lme(score ~ Machine, data = Machines, random = ~ 1 | Worker)
+summary(fm1Machine)</code></pre>
+<pre><code>## Linear mixed-effects model fit by REML
+##  Data: Machines 
+##        AIC      BIC    logLik
+##   296.8782 306.5373 -143.4391
+## 
+## Random effects:
+##  Formula: ~1 | Worker
+##         (Intercept) Residual
+## StdDev:    5.146552 3.161647
+## 
+## Fixed effects: score ~ Machine 
+##                Value Std.Error DF  t-value p-value
+## (Intercept) 52.35556  2.229312 46 23.48507       0
+## MachineB     7.96667  1.053883 46  7.55935       0
+## MachineC    13.91667  1.053883 46 13.20514       0
+##  Correlation: 
+##          (Intr) MachnB
+## MachineB -0.236       
+## MachineC -0.236  0.500
+## 
+## Standardized Within-Group Residuals:
+##        Min         Q1        Med         Q3        Max 
+## -2.7248806 -0.5232891  0.1327564  0.6513056  1.7559058 
+## 
+## Number of Observations: 54
+## Number of Groups: 6</code></pre>
+<p><span class="math display">\[
+y_{ijk} = \beta_{j} + b_{i} + b_{ij} + \epsilon_{ijk},\\
+i = 1, ..., 6,\\
+j = 1, ..., 3,\\
+k = 1, ..., 3,\\
+b_{i} \sim N(0, \sigma^{}_{1}),\\
+b_{ij} \sim N(0, \sigma^{2}_{2}),\\
+\epsilon_{ijk} \sim N(0, \sigma^{2}).
+\]</span></p>
+<p>This model includes a random effect for Worker as well as a random effect for Machine within Worker. It can be expressed in R as follows.</p>
+<pre class="r"><code>fm2Machine &lt;- update(fm1Machine, random = ~ 1 | Worker/Machine )
+summary(fm2Machine)</code></pre>
+<pre><code>## Linear mixed-effects model fit by REML
+##  Data: Machines 
+##        AIC      BIC    logLik
+##   227.6876 239.2785 -107.8438
+## 
+## Random effects:
+##  Formula: ~1 | Worker
+##         (Intercept)
+## StdDev:     4.78105
+## 
+##  Formula: ~1 | Machine %in% Worker
+##         (Intercept)  Residual
+## StdDev:    3.729532 0.9615771
+## 
+## Fixed effects: score ~ Machine 
+##                Value Std.Error DF   t-value p-value
+## (Intercept) 52.35556  2.485828 36 21.061613  0.0000
+## MachineB     7.96667  2.176972 10  3.659518  0.0044
+## MachineC    13.91667  2.176972 10  6.392672  0.0001
+##  Correlation: 
+##          (Intr) MachnB
+## MachineB -0.438       
+## MachineC -0.438  0.500
+## 
+## Standardized Within-Group Residuals:
+##         Min          Q1         Med          Q3         Max 
+## -2.26958675 -0.54846580 -0.01070594  0.43936568  2.54005792 
+## 
+## Number of Observations: 54
+## Number of Groups: 
+##              Worker Machine %in% Worker 
+##                   6                  18</code></pre>
+<pre class="r"><code>anova(fm1Machine, fm2Machine)</code></pre>
+<pre><code>##            Model df      AIC      BIC    logLik   Test  L.Ratio p-value
+## fm1Machine     1  5 296.8782 306.5373 -143.4391                        
+## fm2Machine     2  6 227.6876 239.2785 -107.8438 1 vs 2 71.19063  &lt;.0001</code></pre>
 </div>
+<div id="unbalanced-data" class="section level3">
+<h3>1.3.2 Unbalanced data</h3>
+<pre class="r"><code># Omit 10 of 54 values.
+MachinesUnbal &lt;- Machines[-c(2,3,6,8,9,12,19,20,27,33), ]
+table(MachinesUnbal$Machine, MachinesUnbal$Worker)</code></pre>
+<pre><code>##    
+##     6 2 4 1 3 5
+##   A 3 2 2 1 1 3
+##   B 3 3 3 1 2 2
+##   C 3 3 3 3 3 3</code></pre>
+<pre class="r"><code>fm1MachinesU &lt;- lme( score ~ Machine, data = MachinesUnbal, random = ~ 1 | Worker/Machine)
+summary(fm1MachinesU)</code></pre>
+<pre><code>## Linear mixed-effects model fit by REML
+##  Data: MachinesUnbal 
+##        AIC      BIC    logLik
+##   193.8715 204.1529 -90.93575
+## 
+## Random effects:
+##  Formula: ~1 | Worker
+##         (Intercept)
+## StdDev:     4.73873
+## 
+##  Formula: ~1 | Machine %in% Worker
+##         (Intercept)  Residual
+## StdDev:    3.772811 0.9332026
+## 
+## Fixed effects: score ~ Machine 
+##                Value Std.Error DF   t-value p-value
+## (Intercept) 52.35400  2.490612 26 21.020537  0.0000
+## MachineB     7.96245  2.214706 10  3.595261  0.0049
+## MachineC    13.91822  2.209363 10  6.299653  0.0001
+##  Correlation: 
+##          (Intr) MachnB
+## MachineB -0.446       
+## MachineC -0.447  0.503
+## 
+## Standardized Within-Group Residuals:
+##          Min           Q1          Med           Q3          Max 
+## -2.102312233 -0.499070388 -0.009600115  0.395032252  2.612633808 
+## 
+## Number of Observations: 44
+## Number of Groups: 
+##              Worker Machine %in% Worker 
+##                   6                  18</code></pre>
+<pre class="r"><code>intervals(fm1MachinesU)</code></pre>
+<pre><code>## Approximate 95% confidence intervals
+## 
+##  Fixed effects:
+##                 lower      est.    upper
+## (Intercept) 47.234474 52.354000 57.47353
+## MachineB     3.027773  7.962446 12.89712
+## MachineC     8.995454 13.918222 18.84099
+## attr(,&quot;label&quot;)
+## [1] &quot;Fixed effects:&quot;
+## 
+##  Random Effects:
+##   Level: Worker 
+##                    lower    est.    upper
+## sd((Intercept)) 2.216293 4.73873 10.13204
+##   Level: Machine 
+##                    lower     est.    upper
+## sd((Intercept)) 2.409165 3.772811 5.908316
+## 
+##  Within-group standard error:
+##     lower      est.     upper 
+## 0.7113550 0.9332026 1.2242370</code></pre>
+<p>Note that you need some level of replication or else this will not work. Make sure to check the intervals to check this phenomenon.</p>
+</div>
+<div id="section" class="section level3">
+<h3>1.3.3</h3>
+</div>
+</div>
+<div id="an-analysis-of-covariance-model" class="section level2">
+<h2>1.4 An analysis of covariance model</h2>
+</div>
+<div id="models-for-nested-classification-factors" class="section level2">
+<h2>1.5 Models for nested classification factors</h2>
+</div>
+<div id="a-split-plot-experiment" class="section level2">
+<h2>1.6 A split-plot experiment</h2>
 </div>
 
 

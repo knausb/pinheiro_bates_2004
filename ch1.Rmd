@@ -2,7 +2,10 @@
 title: "Chapter 1"
 author: "Brian J. Knaus"
 date: "7/14/2017"
-output: html_document
+output: 
+  html_document:
+    toc: true
+    toc_depth: 2
 ---
 
 ```{r setup, include=FALSE}
@@ -226,13 +229,77 @@ detach()
 ### Fitting random interaction terms
 
 
-
 $$
 y_{ijk} = \beta_{j} + b_{i} + \epsilon_{ijk}, i = 1, ..., 6, j = 1, ..., 3, k = 1, ..., 3,\\
 b_{i} ~\sim N(o, \sigma^{2}_{b}), \epsilon_{ijk} \sim N(0, \sigma^{2}) (1.7)
 $$
 
 
+This differs from equation 1.6 in that the response ($y$) and the error ($\epsilon$) include an additional counter ($k$) to iterate over the replicates.
+
+
+```{r}
+fm1Machine <- lme(score ~ Machine, data = Machines, random = ~ 1 | Worker)
+summary(fm1Machine)
+```
+
+
+$$
+y_{ijk} = \beta_{j} + b_{i} + b_{ij} + \epsilon_{ijk},\\
+i = 1, ..., 6,\\
+j = 1, ..., 3,\\
+k = 1, ..., 3,\\
+b_{i} \sim N(0, \sigma^{}_{1}),\\
+b_{ij} \sim N(0, \sigma^{2}_{2}),\\
+\epsilon_{ijk} \sim N(0, \sigma^{2}).
+$$
+
+
+This model includes a random effect for Worker as well as a random effect for Machine within Worker.
+It can be expressed in R as follows.
+
+
+```{r}
+fm2Machine <- update(fm1Machine, random = ~ 1 | Worker/Machine )
+summary(fm2Machine)
+anova(fm1Machine, fm2Machine)
+```
+
+
+### 1.3.2 Unbalanced data
+
+
+
+```{r}
+# Omit 10 of 54 values.
+MachinesUnbal <- Machines[-c(2,3,6,8,9,12,19,20,27,33), ]
+table(MachinesUnbal$Machine, MachinesUnbal$Worker)
+fm1MachinesU <- lme( score ~ Machine, data = MachinesUnbal, random = ~ 1 | Worker/Machine)
+summary(fm1MachinesU)
+intervals(fm1MachinesU)
+```
+
+
+Note that you need some level of replication or else this will not work.
+Make sure to check the intervals to check this phenomenon.
+
+
+### 1.3.3
+
+
+
+
+
+## 1.4 An analysis of covariance model
+
+
+
+## 1.5 Models for nested classification factors
+
+
+
+
+## 1.6 A split-plot experiment
 
 
 

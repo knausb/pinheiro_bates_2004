@@ -147,7 +147,7 @@ y_{ij} = \beta + \epsilon_{ij},\\
 i = 1, ..., M, \\
 j = 1, ..., n_{i}. (1.1)
 \]</span></p>
-<p>Here <span class="math inline">\(M\)</span> iterates over rails, <span class="math inline">\(j\)</span> iterates over observations for each rail, <span class="math inline">\(y\)</span> is our response (travel), <span class="math inline">\(\beta\)</span> is tha parameter we’d like to infer and <span class="math inline">\(\epsilon\)</span> is the normally distributed error term. In R we express this with a model formula.</p>
+<p>Here <span class="math inline">\(M\)</span> iterates over rails, <span class="math inline">\(j\)</span> iterates over observations for each rail, <span class="math inline">\(n_{i}\)</span> is the number of observations for each rail, <span class="math inline">\(y\)</span> is our response (travel), <span class="math inline">\(\beta\)</span> is tha parameter we’d like to infer and <span class="math inline">\(\epsilon\)</span> is the normally distributed error term. In R we express this with a model formula.</p>
 <pre class="r"><code>fm1Rail.lm &lt;- lm(travel ~ 1, data = Rail)
 summary(fm1Rail.lm)</code></pre>
 <pre><code>## 
@@ -170,26 +170,46 @@ summary(fm1Rail.lm)</code></pre>
 <p><span class="math display">\[
 y_{ij} = \beta_{i} + \epsilon_{ij},\\
 i = 1, ..., M, \\
-j = 1, ..., n_{i}. (1.1)
+j = 1, ..., n_{i}. (1.2)
 \]</span></p>
 <p>Note that our parameter <span class="math inline">\(\beta\)</span> now has a counter.</p>
+<p>The model formula for fitting this model in R is below.</p>
 <pre class="r"><code>fm2Rail.lm &lt;- lm(travel ~ Rail - 1, data = Rail)
-summary(fm1Rail.lm)</code></pre>
+summary(fm2Rail.lm)</code></pre>
 <pre><code>## 
 ## Call:
-## lm(formula = travel ~ 1, data = Rail)
+## lm(formula = travel ~ Rail - 1, data = Rail)
 ## 
 ## Residuals:
-##    Min     1Q Median     3Q    Max 
-## -40.50 -16.25   0.00  18.50  33.50 
+##     Min      1Q  Median      3Q     Max 
+## -6.6667 -1.0000  0.1667  1.0000  6.3333 
 ## 
 ## Coefficients:
-##             Estimate Std. Error t value Pr(&gt;|t|)    
-## (Intercept)   66.500      5.573   11.93  1.1e-09 ***
+##       Estimate Std. Error t value Pr(&gt;|t|)    
+## Rail2   31.667      2.321   13.64 1.15e-08 ***
+## Rail5   50.000      2.321   21.54 5.86e-11 ***
+## Rail1   54.000      2.321   23.26 2.37e-11 ***
+## Rail6   82.667      2.321   35.61 1.54e-13 ***
+## Rail3   84.667      2.321   36.47 1.16e-13 ***
+## Rail4   96.000      2.321   41.35 2.59e-14 ***
 ## ---
 ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ## 
-## Residual standard error: 23.65 on 17 degrees of freedom</code></pre>
+## Residual standard error: 4.021 on 12 degrees of freedom
+## Multiple R-squared:  0.9978, Adjusted R-squared:  0.9967 
+## F-statistic: 916.6 on 6 and 12 DF,  p-value: 2.971e-15</code></pre>
+<p>We now have a mean for each rail. These values can be compared to the plot above.</p>
+<p>A random effects model would be as follows.</p>
+<p><span class="math display">\[
+y_{ij} = \beta + b_{i} + \epsilon_{ij}, (1.4)\\
+\]</span></p>
+<p>Here, <span class="math inline">\(\beta\)</span> is the mean travel time across the population of rails and <span class="math inline">\(b_{i}\)</span> is a random variable representing the deviation from the population mean of the mean travel time for the <span class="math inline">\(i\)</span>th rail. We now have two random variables.</p>
+<p><span class="math display">\[
+b_{i} \sim N(0, \sigma^{2}_{b}), \epsilon \sim N(0, \sigma^{2}). (1.5)
+\]</span></p>
+</div>
+<div id="fitting-the-random-effects-model-with-lme" class="section level2">
+<h2>1.1.1 Fitting the random-effects model with lme</h2>
 </div>
 
 

@@ -42,7 +42,7 @@ j = 1, ..., n_{i}. (1.1)
 $$
 
 
-Here $M$ iterates over rails, $j$ iterates over observations for each rail, $y$ is our response (travel), $\beta$ is tha parameter we'd like to infer and  $\epsilon$ is the normally distributed error term.
+Here $M$ iterates over rails, $j$ iterates over observations for each rail, $n_{i}$ is the number of observations for each rail, $y$ is our response (travel), $\beta$ is tha parameter we'd like to infer and  $\epsilon$ is the normally distributed error term.
 In R we express this with a model formula.
 
 
@@ -64,19 +64,43 @@ Mathematically we express this as follows.
 $$
 y_{ij} = \beta_{i} + \epsilon_{ij},\\
 i = 1, ..., M, \\
-j = 1, ..., n_{i}. (1.1)
+j = 1, ..., n_{i}. (1.2)
 $$
 
 
 Note that our parameter $\beta$ now has a counter.
 
+The model formula for fitting this model in R is below.
 
 
 ```{r}
 fm2Rail.lm <- lm(travel ~ Rail - 1, data = Rail)
-summary(fm1Rail.lm)
-
-plot(fm1Rail.lm)
+summary(fm2Rail.lm)
 ```
+
+
+We now have a mean for each rail.
+These values can be compared to the plot above.
+
+
+A random effects model would be as follows.
+
+
+$$
+y_{ij} = \beta + b_{i} + \epsilon_{ij}, (1.4)\\
+$$
+
+
+Here, $\beta$ is the mean travel time across the population of rails and $b_{i}$ is a random variable representing the deviation from the population mean of the mean travel time for the $i$th rail.
+We now have two random variables.
+
+
+$$
+b_{i} \sim N(0, \sigma^{2}_{b}), \epsilon \sim N(0, \sigma^{2}). (1.5)
+$$
+
+
+## 1.1.1 Fitting the random-effects model with lme
+
 
 

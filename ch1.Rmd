@@ -15,6 +15,10 @@ knitr::opts_chunk$set(fig.width = 4)
 ## 1.1 A simple example of random effects
 
 
+In order to introduce the concept of random effects Pinheiro and Bates use an example that tests railroad rails.
+The example comes with teh package `lme4`.
+
+
 ```{r}
 library(nlme)
 head(Rail)
@@ -23,16 +27,56 @@ plot(Rail)
 ```
 
 
+We see that the data are in a `data.frame`-like object that appears tabular.
+The `plot` method reproduces the figure from the book and shows that our dataset consists of 6 rails that have each been tested 3 times.
+
+
+Our first attempt to characterize the data ignores any grouping information.
+Mathematically it is expressed as follows.
+
+
 $$
 y_{ij} = \beta + \epsilon_{ij},\\
 i = 1, ..., M, \\
-j = 1, ..., n_{i}, (1.1)
+j = 1, ..., n_{i}. (1.1)
 $$
+
+
+Here $M$ iterates over rails, $j$ iterates over observations for each rail, $y$ is our response (travel), $\beta$ is tha parameter we'd like to infer and  $\epsilon$ is the normally distributed error term.
+In R we express this with a model formula.
 
 
 ```{r}
 fm1Rail.lm <- lm(travel ~ 1, data = Rail)
 summary(fm1Rail.lm)
+```
+
+
+The model only asks to inferr the intercept (indicates by `~ 1`).
+This is analagous to taking a simple mean: `r mean(Rail$travel)`.
+The variation we observe around this mean is 23.65 which, as pointed out in the book, is substantial.
+
+
+We build a slightly more complex model by adding 'rail effects' as a 'fixed effect.'
+Mathematically we express this as follows.
+
+
+$$
+y_{ij} = \beta_{i} + \epsilon_{ij},\\
+i = 1, ..., M, \\
+j = 1, ..., n_{i}. (1.1)
+$$
+
+
+Note that our parameter $\beta$ now has a counter.
+
+
+
+```{r}
+fm2Rail.lm <- lm(travel ~ Rail - 1, data = Rail)
+summary(fm1Rail.lm)
+
+plot(fm1Rail.lm)
 ```
 
 

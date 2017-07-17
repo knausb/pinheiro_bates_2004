@@ -100,7 +100,84 @@ b_{i} \sim N(0, \sigma^{2}_{b}), \epsilon \sim N(0, \sigma^{2}). (1.5)
 $$
 
 
-## 1.1.1 Fitting the random-effects model with lme
+### 1.1.1 Fitting the random-effects model with lme
+
+
+```{r}
+fm1Rail.lme <- lme(travel ~ 1, data = Rail, random = ~ 1 | Rail)
+summary(fm1Rail.lme)
+```
+
+
+
+```{r}
+fm1Rail.lmeML <- update(fm1Rail.lme, method = "ML")
+summary(fm1Rail.lmeML)
+```
+
+
+### 1.1.2 Assessing the fitted model
+
+
+```{r}
+plot(fm1Rail.lme)
+intervals(fm1Rail.lme)
+anova(fm1Rail.lme)
+```
+
+
+
+
+## 1.2 A randomized block design
+
+
+A randomized block experiment has two classification factors: an experimental factor where we'll use 'fixed effects' and blocking factor where we'll use 'random effects.'
+In the ergoStool example there are four types of stool that we wish to make inferences about, so we use fixed effects.
+There are 9 subjects that measured the stools represent a sample from a population which we would like to make inferences about so we use random effects to model them.
+
+
+```{r}
+plot(ergoStool)
+plot.design(ergoStool)
+```
+
+
+
+## 1.2 Choosing contrasts for fixed-effects terms
+
+
+Our model for our randomized block design can be expressed mathematically.
+
+$$
+y_{ij} = \beta_{j} + b_{i} + \epsilon_{ij}, i = 1, ..., 9, j = 1, ..., 4\\
+b_{i} \sim N(0,\sigma^{2}_{b}), \epsilon \sim N(0, \sigma^{2})(1.6)
+$$
+
+
+Note that equation 1.6 differs from equation 1.4 in that we now have a counter for our parameter ($\beta$) to count the different subjects.
+
+
+
+
+```{r}
+#options( contrasts = c(factor = "contr.treatment", ordered = "contr.poly"))
+options( contrasts = c(factor = "contr.helmert", ordered = "contr.poly"))
+contrasts(ergoStool$Type)
+```
+
+
+```{r}
+ergoStool1 <- ergoStool[ ergoStool$Subject == "1", ]
+model.matrix( effort ~ Type, ergoStool1)
+```
+
+
+
+```{r}
+fm1Stool <- lme(effort ~ Type, data = ergoStool, random = ~ 1 | Subject)
+summary(fm1Stool)
+anova(fm1Stool)
+```
 
 
 

@@ -181,3 +181,58 @@ anova(fm1Stool)
 
 
 
+```{r}
+options( contrasts = c(factor = "contr.treatment", ordered = "contr.poly"))
+#options( contrasts = c(factor = "contr.helmert", ordered = "contr.poly"))
+contrasts(ergoStool$Type)
+fm2Stool <- lme(effort ~ Type, data = ergoStool, random = ~ 1 | Subject)
+summary(fm2Stool)
+anova(fm2Stool)
+```
+
+
+```{r}
+model.matrix( effort ~ Type - 1, ergoStool1 )
+fm3Stool <- lme(effort ~ Type, data = ergoStool, random = ~ 1 | Subject)
+summary(fm3Stool)
+anova(fm3Stool)
+```
+
+
+### 1.2.2 Examining the model
+
+
+```{r, fig.width=6}
+intervals(fm1Stool)
+plot(fm1Stool, form = resid(., type = "p") ~ fitted(.) | Subject, abline = 0)
+```
+
+
+## 1.3 Mixed-effects models for replicated, blocked designs
+
+
+```{r, fig.width = 6}
+plot(Machines)
+```
+
+
+```{r, fig.width=6}
+attach(Machines)
+interaction.plot(Machine, Worker, score, las = 1)
+detach()
+```
+
+
+### Fitting random interaction terms
+
+
+
+$$
+y_{ijk} = \beta_{j} + b_{i} + \epsilon_{ijk}, i = 1, ..., 6, j = 1, ..., 3, k = 1, ..., 3,\\
+b_{i} ~\sim N(o, \sigma^{2}_{b}), \epsilon_{ijk} \sim N(0, \sigma^{2}) (1.7)
+$$
+
+
+
+
+

@@ -303,3 +303,44 @@ Make sure to check the intervals to check this phenomenon.
 
 
 
+```{r, fig.width=6}
+plot(Oats)
+```
+
+
+```{r}
+fm1Oats <- lme(yield ~ ordered(nitro) * Variety, data = Oats, random = ~ 1 | Block/Variety)
+anova(fm1Oats)
+```
+
+
+```{r}
+fm2Oats <- update(fm1Oats, yield ~ ordered(nitro) + Variety)
+anova(fm2Oats)
+summary(fm2Oats)
+```
+
+
+```{r}
+fm3Oats <- update(fm1Oats, yield ~ ordered(nitro))
+#anova(fm3Oats)
+summary(fm3Oats)
+```
+
+
+
+```{r}
+fm4Oats <- lme(yield ~ nitro, data = Oats, random = ~ 1 | Block/Variety)
+summary(fm4Oats)
+VarCorr(fm4Oats)
+intervals(fm4Oats)
+```
+
+
+
+```{r, fig.width=6, fig.height=6}
+plot(augPred(fm4Oats), aspect = 2.5, layout = c(6,3), between = list(x=c(0,0,0.5)))
+```
+
+
+

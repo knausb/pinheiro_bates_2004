@@ -1,0 +1,148 @@
+---
+title: "poppr_amova"
+author: "Brian J. Knaus"
+date: "July 18, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## poppr::poppr.amova
+
+
+```{r}
+function (x, hier = NULL, clonecorrect = FALSE, within = TRUE, 
+    dist = NULL, squared = TRUE, correction = "quasieuclid", 
+    sep = "_", filter = FALSE, threshold = 0, algorithm = "farthest_neighbor", 
+    missing = "loci", cutoff = 0.05, quiet = FALSE, method = c("ade4", 
+        "pegas"), nperm = 0) 
+{
+    if (!is.genind(x)) 
+        stop(paste(substitute(x), "must be a genind object."))
+    if (is.null(hier)) 
+        stop("A population hierarchy must be specified")
+    methods <- c("ade4", "pegas")
+    method <- match.arg(method, methods)
+    setPop(x) <- hier
+    if (filter && (!within | all(ploidy(x) == 1) | !check_Hs(x) | 
+        x@type == "PA")) {
+        if (!is.genclone(x)) {
+            x <- as.genclone(x)
+        }
+        if (!is(x@mlg, "MLG")) {
+            x@mlg <- new("MLG", x@mlg)
+        }
+        if (!quiet) {
+            message("Filtering ...")
+            message("Original multilocus genotypes ... ", nmll(x, 
+                "original"))
+        }
+        if (is.null(dist)) {
+            nulldist <- TRUE
+            dist <- diss.dist(x, percent = FALSE)
+        }
+        else {
+            nulldist <- FALSE
+        }
+        filt_stats <- mlg.filter(x, threshold = threshold, algorithm = algorithm, 
+            distance = dist, stats = "ALL")
+        if (nulldist) {
+            filt_stats$DISTANCE <- sqrt(filt_stats$DISTANCE)
+            squared <- FALSE
+        }
+        dist <- as.dist(filt_stats$DISTANCE)
+        x@mlg@mlg["contracted"] <- filt_stats$MLGS
+        distname(x@mlg) <- "diss.dist"
+        distalgo(x@mlg) <- algorithm
+        cutoff(x@mlg)["contracted"] <- threshold
+        mll(x) <- "contracted"
+        if (!quiet) 
+            message("Contracted multilocus genotypes ... ", nmll(x))
+    }
+    if (clonecorrect) {
+        x <- clonecorrect(x, strata = hier, keep = 1:length(all.vars(hier)))
+    }
+    if (within & all(ploidy(x) == 2) & check_Hs(x) & x@type != 
+        "PA") {
+        hier <- update(hier, ~./Individual)
+        x <- pool_haplotypes(x)
+    }
+    x <- missingno(x, type = missing, cutoff = cutoff, quiet = quiet)
+    hierdf <- strata(x, formula = hier)
+    if (method == "ade4") 
+        xstruct <- make_ade_df(hier, hierdf)
+    if (is.null(dist)) {
+        if (method == "ade4") {
+            xdist <- sqrt(diss.dist(clonecorrect(x, strata = NA), 
+                percent = FALSE))
+        }
+        else {
+            xdist <- sqrt(diss.dist(x, percent = FALSE))
+        }
+    }
+    else {
+        datalength <- choose(nInd(x), 2)
+        mlgs <- mlg(x, quiet = TRUE)
+        mlglength <- choose(mlgs, 2)
+        if (length(dist) > mlglength & length(dist) == datalength) {
+            corrected <- TRUE
+            if (method == "ade4") {
+                corrected <- .clonecorrector(x)
+            }
+            xdist <- as.dist(as.matrix(dist)[corrected, corrected])
+        }
+        else if (length(dist) == mlglength) {
+            xdist <- dist
+        }
+        else {
+            distobs <- ceiling(sqrt(length(dist) * 2))
+            msg <- paste("\\nDistance matrix does not match the data.\\n", 
+                "\\n\\tUncorrected observations expected..........", 
+                nInd(x), "\\n\\tClone corrected observations expected......", 
+                mlgs, "\\n\\tObservations in provided distance matrix...", 
+                distobs, ifelse(within == TRUE, "\\n\\n\\tTry setting within = FALSE.", 
+                  "\\n"))
+            stop(msg)
+        }
+        if (squared) {
+            xdist <- sqrt(xdist)
+        }
+    }
+    if (!is.euclid(xdist)) {
+        CORRECTIONS <- c("cailliez", "quasieuclid", "lingoes")
+        try(correct <- match.arg(correction, CORRECTIONS), silent = TRUE)
+        if (!exists("correct")) {
+            stop(not_euclid_msg(correction))
+        }
+        else {
+            correct_fun <- match.fun(correct)
+            if (correct == CORRECTIONS[2]) {
+                message("Distance matrix is non-euclidean.")
+                message(c("Utilizing quasieuclid correction method.", 
+                  " See ?quasieuclid for details."))
+                xdist <- correct_fun(xdist)
+            }
+            else {
+                xdist <- correct_fun(xdist, print = TRUE, cor.zero = FALSE)
+            }
+        }
+    }
+    if (method == "ade4") {
+        allmlgs <- unique(mlg.vector(x))
+        xtab <- t(mlg.table(x, plot = FALSE, quiet = TRUE, mlgsub = allmlgs))
+        xtab <- as.data.frame(xtab)
+        return(ade4::amova(samples = xtab, distances = xdist, 
+            structures = xstruct))
+    }
+    else {
+        form <- paste(all.vars(hier), collapse = "/")
+        hier <- as.formula(paste("xdist ~", form))
+        return(pegas::amova(hier, data = hierdf, nperm = nperm, 
+            is.squared = FALSE))
+    }
+}
+```
+
+

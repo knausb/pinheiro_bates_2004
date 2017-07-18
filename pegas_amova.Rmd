@@ -14,30 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 #pegas::amova
-repAmova <- function (formula, data = NULL, nperm = 1000, is.squared = FALSE) 
-{
-    y.nms <- as.character(as.expression(formula[[2]]))
-    rhs <- formula[[3]]
-    gr.nms <- as.character(as.expression(rhs))
-    if (length(rhs) > 1) 
-        gr.nms <- unlist(strsplit(gr.nms, "/"))
-    data.env <- if (is.null(data)) 
-        environment(formula)
-    else as.environment(data)
-    if (any(sapply(gr.nms, function(x) !is.factor(get(x, envir = data.env))))) 
-        warning("elements in the rhs of the formula are not all factors")
-    gr <- as.data.frame(sapply(gr.nms, get, envir = data.env))
-    y <- get(y.nms, envir = environment(formula))
-    if (any(is.na(y))) 
-        warning("at least one missing value in the distance object.")
-    if (!is.squared) 
-        y <- y^2
-    if (class(y) == "dist") 
-        y <- as.matrix(y)
-    if (!is.matrix(y)) 
-        stop("the lhs of the formula must be either a matrix or an object of class 'dist'.")
-    n <- dim(y)[1]
-    Nlv <- length(gr)
+
     foo <- function(x, index) unlist(lapply(split(x, index), 
         sum))
     getSSD <- function(y, gr, Nlv, N, n) {
@@ -95,7 +72,7 @@ repAmova <- function (formula, data = NULL, nperm = 1000, is.squared = FALSE)
         names(ncoef) <- letters[1:length(ncoef)]
         ncoef
     }
-    getVarComp <- function(MSD, Nlv, ncoef) {
+    getVarComp <- function(gr, MSD, Nlv, ncoef) {
         if (Nlv == 1) 
             sigma2 <- c((MSD[1] - MSD[2])/ncoef, MSD[2])
         else {
@@ -116,12 +93,49 @@ repAmova <- function (formula, data = NULL, nperm = 1000, is.squared = FALSE)
         names(sigma2) <- c(names(gr), "Error")
         sigma2
     }
+
+
+repAmova <- function (formula, data = NULL, nperm = 10, is.squared = FALSE) 
+{
+    # Manage left hand side
+    y.nms <- as.character(as.expression(formula[[2]]))
+    # Manage right hand side
+    rhs <- formula[[3]]
+    gr.nms <- as.character(as.expression(rhs))
+    if (length(rhs) > 1) 
+        gr.nms <- unlist(strsplit(gr.nms, "/"))
+    # Set environment
+    data.env <- if (is.null(data)) 
+        environment(formula)
+    else as.environment(data)
+    # Test that rhs are factors
+    if (any(sapply(gr.nms, function(x) !is.factor(get(x, envir = data.env))))) 
+        warning("elements in the rhs of the formula are not all factors")
+    # Load rhs data in gr
+    gr <- as.data.frame(sapply(gr.nms, get, envir = data.env))
+    # load lhs into y
+    y <- get(y.nms, envir = environment(formula))
+    # Sanitize lhs dist/matrix
+    if (any(is.na(y))) 
+        warning("at least one missing value in the distance object.")
+    if (!is.squared) 
+        y <- y^2
+    if (class(y) == "dist") 
+        y <- as.matrix(y)
+    if (!is.matrix(y)) 
+        stop("the lhs of the formula must be either a matrix or an object of class 'dist'.")
+    n <- dim(y)[1]
+    # Number of levels
+    Nlv <- length(gr)
+
     N <- lapply(gr, tabulate)
     SSD <- getSSD(y, gr, Nlv, N, n)
     df <- getDF(gr, Nlv, N, n)
     MSD <- SSD/df
     ncoef <- getNcoefficient(gr, Nlv, N, n)
-    sigma2 <- getVarComp(MSD, Nlv, ncoef)
+    sigma2 <- getVarComp(gr, MSD, Nlv, ncoef)
+    
+    # Assemble return
     res <- list(tab = data.frame(SSD = SSD, MSD = MSD, df = df, 
         row.names = c(names(gr), "Error", "Total")), varcoef = ncoef, 
         varcomp = sigma2, call = match.call())
@@ -134,7 +148,7 @@ repAmova <- function (formula, data = NULL, nperm = 1000, is.squared = FALSE)
         for (i in 1:nperm) {
             rY <- perm.rowscols(y, n)
             rSSD <- getSSD(rY, gr, Nlv, N, n)
-            rSigma2[i, j] <- getVarComp(rSSD/df, Nlv, ncoef)[j]
+            rSigma2[i, j] <- getVarComp(gr, rSSD/df, Nlv, ncoef)[j]
         }
         if (Nlv > 1) {
             j <- Nlv
@@ -144,7 +158,7 @@ repAmova <- function (formula, data = NULL, nperm = 1000, is.squared = FALSE)
                 rind <- unlist(lapply(L, sample))
                 rY <- y[rind, rind]
                 rSSD <- getSSD(rY, gr, Nlv, N, n)
-                rSigma2[i, j] <- getVarComp(rSSD/df, Nlv, ncoef)[j]
+                rSigma2[i, j] <- getVarComp(gr, rSSD/df, Nlv, ncoef)[j]
             }
             if (Nlv > 2) {
                 for (j in (Nlv - 1):2) {
@@ -161,7 +175,7 @@ repAmova <- function (formula, data = NULL, nperm = 1000, is.squared = FALSE)
                     rSSD <- getSSD(rY, rGR, Nlv, rN, n)
                     rDF <- getDF(rGR, Nlv, rN, n)
                     rNcoef <- getNcoefficient(rGR, Nlv, rN, n)
-                    rSigma2[i, j] <- getVarComp(rSSD/rDF, Nlv, 
+                    rSigma2[i, j] <- getVarComp(gr, rSSD/rDF, Nlv, 
                       rNcoef)[j]
                   }
                 }
@@ -176,7 +190,7 @@ repAmova <- function (formula, data = NULL, nperm = 1000, is.squared = FALSE)
                 rSSD <- getSSD(rY, rGR, Nlv, rN, n)
                 rDF <- getDF(rGR, Nlv, rN, n)
                 rNcoef <- getNcoefficient(rGR, Nlv, rN, n)
-                rSigma2[i, 1] <- getVarComp(rSSD/rDF, Nlv, rNcoef)[1]
+                rSigma2[i, 1] <- getVarComp(gr, rSSD/rDF, Nlv, rNcoef)[1]
             }
         }
         P <- numeric(Nlv + 1)
@@ -204,11 +218,12 @@ p <- factor(c(rep(1, 3), rep(2, 4), rep(3, 4), rep(4, 4)))
 #amova(d ~ p, nperm = 100) # 1 level
 #amova(d ~ g, nperm = 100)
 
-debug(repAmova)
+#debug(repAmova)
 
 repAmova(d ~ g/p, nperm = 100) # 2 levels
 repAmova(d ~ p, nperm = 100) # 1 level
 repAmova(d ~ g, nperm = 100)
+
 
 ```
 

@@ -127,30 +127,7 @@ $(document).ready(function () {
 <div id="pegasamova" class="section level2">
 <h2>pegas::amova</h2>
 <pre class="r"><code>#pegas::amova
-repAmova &lt;- function (formula, data = NULL, nperm = 1000, is.squared = FALSE) 
-{
-    y.nms &lt;- as.character(as.expression(formula[[2]]))
-    rhs &lt;- formula[[3]]
-    gr.nms &lt;- as.character(as.expression(rhs))
-    if (length(rhs) &gt; 1) 
-        gr.nms &lt;- unlist(strsplit(gr.nms, &quot;/&quot;))
-    data.env &lt;- if (is.null(data)) 
-        environment(formula)
-    else as.environment(data)
-    if (any(sapply(gr.nms, function(x) !is.factor(get(x, envir = data.env))))) 
-        warning(&quot;elements in the rhs of the formula are not all factors&quot;)
-    gr &lt;- as.data.frame(sapply(gr.nms, get, envir = data.env))
-    y &lt;- get(y.nms, envir = environment(formula))
-    if (any(is.na(y))) 
-        warning(&quot;at least one missing value in the distance object.&quot;)
-    if (!is.squared) 
-        y &lt;- y^2
-    if (class(y) == &quot;dist&quot;) 
-        y &lt;- as.matrix(y)
-    if (!is.matrix(y)) 
-        stop(&quot;the lhs of the formula must be either a matrix or an object of class 'dist'.&quot;)
-    n &lt;- dim(y)[1]
-    Nlv &lt;- length(gr)
+
     foo &lt;- function(x, index) unlist(lapply(split(x, index), 
         sum))
     getSSD &lt;- function(y, gr, Nlv, N, n) {
@@ -208,7 +185,7 @@ repAmova &lt;- function (formula, data = NULL, nperm = 1000, is.squared = FALSE)
         names(ncoef) &lt;- letters[1:length(ncoef)]
         ncoef
     }
-    getVarComp &lt;- function(MSD, Nlv, ncoef) {
+    getVarComp &lt;- function(gr, MSD, Nlv, ncoef) {
         if (Nlv == 1) 
             sigma2 &lt;- c((MSD[1] - MSD[2])/ncoef, MSD[2])
         else {
@@ -229,12 +206,49 @@ repAmova &lt;- function (formula, data = NULL, nperm = 1000, is.squared = FALSE)
         names(sigma2) &lt;- c(names(gr), &quot;Error&quot;)
         sigma2
     }
+
+
+repAmova &lt;- function (formula, data = NULL, nperm = 10, is.squared = FALSE) 
+{
+    # Manage left hand side
+    y.nms &lt;- as.character(as.expression(formula[[2]]))
+    # Manage right hand side
+    rhs &lt;- formula[[3]]
+    gr.nms &lt;- as.character(as.expression(rhs))
+    if (length(rhs) &gt; 1) 
+        gr.nms &lt;- unlist(strsplit(gr.nms, &quot;/&quot;))
+    # Set environment
+    data.env &lt;- if (is.null(data)) 
+        environment(formula)
+    else as.environment(data)
+    # Test that rhs are factors
+    if (any(sapply(gr.nms, function(x) !is.factor(get(x, envir = data.env))))) 
+        warning(&quot;elements in the rhs of the formula are not all factors&quot;)
+    # Load rhs data in gr
+    gr &lt;- as.data.frame(sapply(gr.nms, get, envir = data.env))
+    # load lhs into y
+    y &lt;- get(y.nms, envir = environment(formula))
+    # Sanitize lhs dist/matrix
+    if (any(is.na(y))) 
+        warning(&quot;at least one missing value in the distance object.&quot;)
+    if (!is.squared) 
+        y &lt;- y^2
+    if (class(y) == &quot;dist&quot;) 
+        y &lt;- as.matrix(y)
+    if (!is.matrix(y)) 
+        stop(&quot;the lhs of the formula must be either a matrix or an object of class 'dist'.&quot;)
+    n &lt;- dim(y)[1]
+    # Number of levels
+    Nlv &lt;- length(gr)
+
     N &lt;- lapply(gr, tabulate)
     SSD &lt;- getSSD(y, gr, Nlv, N, n)
     df &lt;- getDF(gr, Nlv, N, n)
     MSD &lt;- SSD/df
     ncoef &lt;- getNcoefficient(gr, Nlv, N, n)
-    sigma2 &lt;- getVarComp(MSD, Nlv, ncoef)
+    sigma2 &lt;- getVarComp(gr, MSD, Nlv, ncoef)
+    
+    # Assemble return
     res &lt;- list(tab = data.frame(SSD = SSD, MSD = MSD, df = df, 
         row.names = c(names(gr), &quot;Error&quot;, &quot;Total&quot;)), varcoef = ncoef, 
         varcomp = sigma2, call = match.call())
@@ -247,7 +261,7 @@ repAmova &lt;- function (formula, data = NULL, nperm = 1000, is.squared = FALSE)
         for (i in 1:nperm) {
             rY &lt;- perm.rowscols(y, n)
             rSSD &lt;- getSSD(rY, gr, Nlv, N, n)
-            rSigma2[i, j] &lt;- getVarComp(rSSD/df, Nlv, ncoef)[j]
+            rSigma2[i, j] &lt;- getVarComp(gr, rSSD/df, Nlv, ncoef)[j]
         }
         if (Nlv &gt; 1) {
             j &lt;- Nlv
@@ -257,7 +271,7 @@ repAmova &lt;- function (formula, data = NULL, nperm = 1000, is.squared = FALSE)
                 rind &lt;- unlist(lapply(L, sample))
                 rY &lt;- y[rind, rind]
                 rSSD &lt;- getSSD(rY, gr, Nlv, N, n)
-                rSigma2[i, j] &lt;- getVarComp(rSSD/df, Nlv, ncoef)[j]
+                rSigma2[i, j] &lt;- getVarComp(gr, rSSD/df, Nlv, ncoef)[j]
             }
             if (Nlv &gt; 2) {
                 for (j in (Nlv - 1):2) {
@@ -274,7 +288,7 @@ repAmova &lt;- function (formula, data = NULL, nperm = 1000, is.squared = FALSE)
                     rSSD &lt;- getSSD(rY, rGR, Nlv, rN, n)
                     rDF &lt;- getDF(rGR, Nlv, rN, n)
                     rNcoef &lt;- getNcoefficient(rGR, Nlv, rN, n)
-                    rSigma2[i, j] &lt;- getVarComp(rSSD/rDF, Nlv, 
+                    rSigma2[i, j] &lt;- getVarComp(gr, rSSD/rDF, Nlv, 
                       rNcoef)[j]
                   }
                 }
@@ -289,7 +303,7 @@ repAmova &lt;- function (formula, data = NULL, nperm = 1000, is.squared = FALSE)
                 rSSD &lt;- getSSD(rY, rGR, Nlv, rN, n)
                 rDF &lt;- getDF(rGR, Nlv, rN, n)
                 rNcoef &lt;- getNcoefficient(rGR, Nlv, rN, n)
-                rSigma2[i, 1] &lt;- getVarComp(rSSD/rDF, Nlv, rNcoef)[1]
+                rSigma2[i, 1] &lt;- getVarComp(gr, rSSD/rDF, Nlv, rNcoef)[1]
             }
         }
         P &lt;- numeric(Nlv + 1)
@@ -312,6 +326,8 @@ p &lt;- factor(c(rep(1, 3), rep(2, 4), rep(3, 4), rep(4, 4)))
 #amova(d ~ p, nperm = 100) # 1 level
 #amova(d ~ g, nperm = 100)
 
+#debug(repAmova)
+
 repAmova(d ~ g/p, nperm = 100) # 2 levels</code></pre>
 <pre><code>## $tab
 ##                SSD          MSD df
@@ -326,8 +342,8 @@ repAmova(d ~ g/p, nperm = 100) # 2 levels</code></pre>
 ## 
 ## $varcomp
 ##              sigma2   P.value
-## g     -8.351821e-07 0.3861386
-## p     -3.545402e-06 0.6138614
+## g     -8.351821e-07 0.3663366
+## p     -3.545402e-06 0.5841584
 ## Error  1.003938e-04        NA
 ## 
 ## $call
@@ -348,7 +364,7 @@ repAmova(d ~ g/p, nperm = 100) # 2 levels</code></pre>
 ## 
 ## $varcomp
 ##              sigma2   P.value
-## p     -4.102190e-06 0.5940594
+## p     -4.102190e-06 0.6534653
 ## Error  1.003938e-04        NA
 ## 
 ## $call
@@ -369,7 +385,7 @@ repAmova(d ~ g/p, nperm = 100) # 2 levels</code></pre>
 ## 
 ## $varcomp
 ##              sigma2   P.value
-## g     -2.354640e-06 0.5247525
+## g     -2.354640e-06 0.5841584
 ## Error  9.836782e-05        NA
 ## 
 ## $call

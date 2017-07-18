@@ -140,6 +140,8 @@ repAmova <- function (formula, data = NULL, nperm = 10, is.squared = FALSE)
         row.names = c(names(gr), "Error", "Total")), varcoef = ncoef, 
         varcomp = sigma2, call = match.call())
     class(res) <- "amova"
+    
+    # Permutation test
     if (nperm) {
         rSigma2 <- matrix(0, nperm, length(sigma2))
         j <- if (Nlv == 1) 
@@ -199,6 +201,7 @@ repAmova <- function (formula, data = NULL, nperm = 10, is.squared = FALSE)
         P[Nlv + 1] <- NA
         res$varcomp <- data.frame(sigma2 = res$varcomp, P.value = P)
     }
+    
     res
 }
 ```

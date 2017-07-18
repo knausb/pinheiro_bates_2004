@@ -253,6 +253,8 @@ repAmova &lt;- function (formula, data = NULL, nperm = 10, is.squared = FALSE)
         row.names = c(names(gr), &quot;Error&quot;, &quot;Total&quot;)), varcoef = ncoef, 
         varcomp = sigma2, call = match.call())
     class(res) &lt;- &quot;amova&quot;
+    
+    # Permutation test
     if (nperm) {
         rSigma2 &lt;- matrix(0, nperm, length(sigma2))
         j &lt;- if (Nlv == 1) 
@@ -312,6 +314,7 @@ repAmova &lt;- function (formula, data = NULL, nperm = 10, is.squared = FALSE)
         P[Nlv + 1] &lt;- NA
         res$varcomp &lt;- data.frame(sigma2 = res$varcomp, P.value = P)
     }
+    
     res
 }</code></pre>
 <pre class="r"><code>### All examples below have 'nperm = 100' for faster execution times.
@@ -342,8 +345,8 @@ repAmova(d ~ g/p, nperm = 100) # 2 levels</code></pre>
 ## 
 ## $varcomp
 ##              sigma2   P.value
-## g     -8.351821e-07 0.3663366
-## p     -3.545402e-06 0.5841584
+## g     -8.351821e-07 0.6435644
+## p     -3.545402e-06 0.5445545
 ## Error  1.003938e-04        NA
 ## 
 ## $call
@@ -364,7 +367,7 @@ repAmova(d ~ g/p, nperm = 100) # 2 levels</code></pre>
 ## 
 ## $varcomp
 ##              sigma2   P.value
-## p     -4.102190e-06 0.6534653
+## p     -4.102190e-06 0.5247525
 ## Error  1.003938e-04        NA
 ## 
 ## $call
@@ -385,7 +388,7 @@ repAmova(d ~ g/p, nperm = 100) # 2 levels</code></pre>
 ## 
 ## $varcomp
 ##              sigma2   P.value
-## g     -2.354640e-06 0.5841584
+## g     -2.354640e-06 0.5346535
 ## Error  9.836782e-05        NA
 ## 
 ## $call

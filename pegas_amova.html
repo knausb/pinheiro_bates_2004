@@ -128,66 +128,67 @@ $(document).ready(function () {
 <h2>pegas::amova</h2>
 <pre class="r"><code>#pegas::amova
 
-    foo &lt;- function(x, index) unlist(lapply(split(x, index), 
-        sum))
+foo &lt;- function(x, index) unlist(lapply(split(x, index), sum))
 
 # Get the sum of squared deviations
 getSSD &lt;- function(y, gr) {
   
   nsamp &lt;- nrow(gr)
-  Nlv &lt;- ncol(gr)
+  Nlevel &lt;- ncol(gr)
   N &lt;- lapply(gr, tabulate)
   
-  SSD &lt;- numeric(Nlv + 2)
-  SSD[Nlv + 2] &lt;- sum(y/(2 * nsamp))
+  SSD &lt;- numeric(Nlevel + 2)
   
-  for (i in 1:Nlv) {
+  # Total SSD
+  SSD[Nlevel + 2] &lt;- sum(y/(2 * nsamp))
+  
+  for (i in 1:Nlevel) {
     p &lt;- gr[, i]
     SSD[i + 1] &lt;- sum(  (y/(2 * N[[i]])[p] )[outer(p, p, &quot;==&quot;)] )
   }
   
-  if (Nlv &gt; 1){
-    for (i in 2:Nlv){
+  if (Nlevel &gt; 1){
+    for (i in 2:Nlevel){
       SSD[i] &lt;- SSD[i] - SSD[i + 1]
     }
   }
   
-  SSD[1] &lt;- SSD[Nlv + 2] - sum(SSD[-(Nlv + 2)])
+  SSD[1] &lt;- SSD[Nlevel + 2] - sum(SSD[-(Nlevel + 2)])
   return(SSD)
 }
 
 
 getDF &lt;- function(gr) {
   nsamp &lt;- nrow(gr)
-  Nlv &lt;- ncol(gr)
+  Nlevel &lt;- ncol(gr)
   N &lt;- lapply(gr, tabulate)
   
-  dfreedom &lt;- numeric(Nlv + 2)
-  dfreedom[1:Nlv] &lt;- unlist(lapply(N, length))
-  dfreedom[Nlv + 1] &lt;- nsamp
+  dfreedom &lt;- numeric(Nlevel + 2)
+  dfreedom[1:Nlevel] &lt;- unlist(lapply(N, length))
+  dfreedom[Nlevel + 1] &lt;- nsamp
   
-  for (i in (Nlv + 1):2){
+  for (i in (Nlevel + 1):2){
     dfreedom[i] &lt;- dfreedom[i] - dfreedom[i - 1]
   }
   
   dfreedom[1] &lt;- dfreedom[1] - 1
-  dfreedom[Nlv + 2] &lt;- nsamp - 1
+  dfreedom[Nlevel + 2] &lt;- nsamp - 1
   return( dfreedom )
 }
 
 getNcoefficient &lt;- function(gr) {
   N &lt;- lapply(gr, tabulate)
   nsamp &lt;- nrow(gr)
-  Nlv &lt;- ncol(gr)
+  Nlevel &lt;- ncol(gr)
       
-  Nig &lt;- N[[Nlv]]
+  Nig &lt;- N[[Nlevel]]
   Nig2 &lt;- Nig^2
   npop &lt;- length(Nig)
   
-  if (Nlv == 1){
+  if (Nlevel == 1){
     ncoef &lt;- (nsamp - sum(Nig2)/nsamp)/(npop - 1)
   } else {
-    if (Nlv == 2) {
+    if (Nlevel == 2) {
       ncoef &lt;- numeric(3)
       G &lt;- nlevels(gr[, 1])
       g &lt;- gr[, 1][match(1:npop, as.integer(gr[, 2]))]
@@ -197,11 +198,11 @@ getNcoefficient &lt;- function(gr) {
       ncoef[2] &lt;- (A - sum(Nig2)/nsamp)/(G - 1)
       ncoef[3] &lt;- (nsamp - sum(foo(Nig, g)^2/nsamp))/(G - 1)
     } else {
-      ncoef &lt;- numeric(Nlv + 1)
-      ncoef[Nlv] &lt;- (nsamp - sum(Nig2)/nsamp)/(npop - 1)
-      ncoef[Nlv + 1] &lt;- 1
+      ncoef &lt;- numeric(Nlevel + 1)
+      ncoef[Nlevel] &lt;- (nsamp - sum(Nig2)/nsamp)/(npop - 1)
+      ncoef[Nlevel + 1] &lt;- 1
       
-      for (i in 1:(Nlv - 1)) {
+      for (i in 1:(Nlevel - 1)) {
         group &lt;- gr[, i]
         g &lt;- group[match(1:npop, as.integer(gr[, i + 1]))]
         A &lt;- sum(foo(Nig, g)^2)/sum(foo(Nig, g))
@@ -220,20 +221,20 @@ getVarComp &lt;- function(gr, MSD) {
   nsamp &lt;- nrow(gr)
   ncoef &lt;- getNcoefficient(gr)
   N &lt;- lapply(gr, tabulate)
-  Nlv &lt;- ncol(gr)
+  Nlevel &lt;- ncol(gr)
   
-  if (Nlv == 1){
+  if (Nlevel == 1){
     sigma2 &lt;- c((MSD[1] - MSD[2])/ncoef, MSD[2])
   } else {
-    sigma2 &lt;- numeric(Nlv + 1)
-    if (Nlv == 2) {
+    sigma2 &lt;- numeric(Nlevel + 1)
+    if (Nlevel == 2) {
       sigma2[3] &lt;- MSD[3]
       sigma2[2] &lt;- (MSD[2] - sigma2[3])/ncoef[1]
       sigma2[1] &lt;- (MSD[1] - MSD[3] - ncoef[2] * sigma2[2])/ncoef[3]
     } else {
-      sigma2[Nlv + 1] &lt;- MSD[Nlv + 1]
-      for (i in Nlv:1) {
-        sel &lt;- i:(Nlv + 1)
+      sigma2[Nlevel + 1] &lt;- MSD[Nlevel + 1]
+      for (i in Nlevel:1) {
+        sel &lt;- i:(Nlevel + 1)
         sigma2[i] &lt;- (MSD[i] - sum(ncoef[sel] * sigma2[sel]))/ncoef[i]
       }
     }
@@ -248,21 +249,21 @@ permutation_test &lt;- function(nperm, sigma2, y, gr){
   
   nsamp &lt;- nrow(gr)
   # Number of levels
-  Nlv &lt;- length(gr)
+  Nlevel &lt;- length(gr)
   N &lt;- lapply(gr, tabulate)
   dfreedom &lt;- getDF(gr)
 
         rSigma2 &lt;- matrix(0, nperm, length(sigma2))
-        j &lt;- if (Nlv == 1) 
+        j &lt;- if (Nlevel == 1) 
             1:2
-        else Nlv + 1
+        else Nlevel + 1
         for (i in 1:nperm) {
             rY &lt;- perm.rowscols(y, nsamp)
             rSSD &lt;- getSSD(rY, gr)
             rSigma2[i, j] &lt;- getVarComp(gr, rSSD/dfreedom)[j]
         }
-        if (Nlv &gt; 1) {
-            j &lt;- Nlv
+        if (Nlevel &gt; 1) {
+            j &lt;- Nlevel
             L &lt;- lapply(levels(gr[, j - 1]), function(x) which(gr[, 
                 j - 1] == x))
             for (i in 1:nperm) {
@@ -271,8 +272,8 @@ permutation_test &lt;- function(nperm, sigma2, y, gr){
                 rSSD &lt;- getSSD(rY, gr)
                 rSigma2[i, j] &lt;- getVarComp(gr, rSSD/dfreedom)[j]
             }
-            if (Nlv &gt; 2) {
-                for (j in (Nlv - 1):2) {
+            if (Nlevel &gt; 2) {
+                for (j in (Nlevel - 1):2) {
                   above &lt;- gr[, j - 1]
                   L &lt;- lapply(levels(above), function(x) which(above == 
                     x))
@@ -303,10 +304,10 @@ permutation_test &lt;- function(nperm, sigma2, y, gr){
                 rSigma2[i, 1] &lt;- getVarComp(gr, rSSD/rDF)[1]
             }
         }
-        P &lt;- numeric(Nlv + 1)
-        for (j in 1:(Nlv + 1)) P[j] &lt;- sum(rSigma2[, j] &gt;= sigma2[j])/(nperm + 
+        P &lt;- numeric(Nlevel + 1)
+        for (j in 1:(Nlevel + 1)) P[j] &lt;- sum(rSigma2[, j] &gt;= sigma2[j])/(nperm + 
             1)
-        P[Nlv + 1] &lt;- NA
+        P[Nlevel + 1] &lt;- NA
 #        res$varcomp &lt;- data.frame(sigma2 = res$varcomp, P.value = P)
 #        return( data.frame(sigma2 = res$varcomp, P.value = P) )
         return( P )
@@ -348,7 +349,7 @@ permutation_test &lt;- function(nperm, sigma2, y, gr){
     gr &lt;- as.data.frame(sapply(gr.nms, get, envir = data.env))
 
     nsamp &lt;- nrow(gr)
-    Nlv &lt;- ncol(gr)
+    Nlevel &lt;- ncol(gr)
 #    nsamp &lt;- dim(y)[1]
     # Number of levels
 #    Nlv &lt;- length(gr)
@@ -404,6 +405,8 @@ p &lt;- factor(c(rep(1, 3), rep(2, 4), rep(3, 4), rep(4, 4)))
 
 #debug(repAmova)
 #undebug(permutation_test)
+#debug(getSSD)
+
 
 repAmova(d ~ g/p, nperm = 00) # 2 levels</code></pre>
 <pre><code>## 
@@ -437,7 +440,7 @@ repAmova(d ~ g/p, nperm = 00) # 2 levels</code></pre>
 ## 
 ## Variance components:
 ##            sigma2 P.value
-## p     -4.1022e-06  0.6436
+## p     -4.1022e-06  0.6535
 ## Error  1.0039e-04        
 ## 
 ## Variance coefficients:
@@ -456,7 +459,7 @@ repAmova(d ~ g/p, nperm = 00) # 2 levels</code></pre>
 ## 
 ## Variance components:
 ##            sigma2 P.value
-## g     -2.3546e-06  0.5941
+## g     -2.3546e-06  0.5545
 ## Error  9.8368e-05        
 ## 
 ## Variance coefficients:

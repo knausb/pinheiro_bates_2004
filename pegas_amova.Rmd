@@ -17,9 +17,11 @@ knitr::opts_chunk$set(echo = TRUE)
 
     foo <- function(x, index) unlist(lapply(split(x, index), 
         sum))
-    getSSD <- function(y, gr, Nlv, N, n) {
+
+# Get the sum of squared differences
+getSSD <- function(y, gr, Nlv, N, nsamp) {
         SSD <- numeric(Nlv + 2)
-        SSD[Nlv + 2] <- sum(y/(2 * n))
+        SSD[Nlv + 2] <- sum(y/(2 * nsamp))
         for (i in 1:Nlv) {
             p <- gr[, i]
             SSD[i + 1] <- sum((y/(2 * N[[i]])[p])[outer(p, p, 
@@ -29,22 +31,30 @@ knitr::opts_chunk$set(echo = TRUE)
             for (i in 2:Nlv) SSD[i] <- SSD[i] - SSD[i + 1]
         SSD[1] <- SSD[Nlv + 2] - sum(SSD[-(Nlv + 2)])
         SSD
+}
+
+
+    getDF <- function(gr, Nlv, N, nsamp) {
+        dfreedom <- numeric(Nlv + 2)
+        dfreedom[1:Nlv] <- unlist(lapply(N, length))
+        dfreedom[Nlv + 1] <- nsamp
+        for (i in (Nlv + 1):2) dfreedom[i] <- dfreedom[i] - dfreedom[i - 1]
+        dfreedom[1] <- dfreedom[1] - 1
+        dfreedom[Nlv + 2] <- nsamp - 1
+        dfreedom
     }
-    getDF <- function(gr, Nlv, N, n) {
-        df <- numeric(Nlv + 2)
-        df[1:Nlv] <- unlist(lapply(N, length))
-        df[Nlv + 1] <- n
-        for (i in (Nlv + 1):2) df[i] <- df[i] - df[i - 1]
-        df[1] <- df[1] - 1
-        df[Nlv + 2] <- n - 1
-        df
-    }
-    getNcoefficient <- function(gr, Nlv, N, n) {
+    
+    getNcoefficient <- function(gr) {
+      
+        N <- lapply(gr, tabulate)
+        nsamp <- nrow(gr)
+        Nlv <- ncol(gr)
+      
         Nig <- N[[Nlv]]
         Nig2 <- Nig^2
         npop <- length(Nig)
         if (Nlv == 1) 
-            ncoef <- (n - sum(Nig2)/n)/(npop - 1)
+            ncoef <- (nsamp - sum(Nig2)/nsamp)/(npop - 1)
         else {
             if (Nlv == 2) {
                 ncoef <- numeric(3)
@@ -52,27 +62,33 @@ knitr::opts_chunk$set(echo = TRUE)
                 g <- gr[, 1][match(1:npop, as.integer(gr[, 2]))]
                 npopBYgr <- tabulate(g)
                 A <- sum(foo(Nig2, g)/foo(Nig, g))
-                ncoef[1] <- (n - A)/sum(npopBYgr - 1)
-                ncoef[2] <- (A - sum(Nig2)/n)/(G - 1)
-                ncoef[3] <- (n - sum(foo(Nig, g)^2/n))/(G - 1)
+                ncoef[1] <- (nsamp - A)/sum(npopBYgr - 1)
+                ncoef[2] <- (A - sum(Nig2)/nsamp)/(G - 1)
+                ncoef[3] <- (nsamp - sum(foo(Nig, g)^2/nsamp))/(G - 1)
             }
             else {
                 ncoef <- numeric(Nlv + 1)
-                ncoef[Nlv] <- (n - sum(Nig2)/n)/(npop - 1)
+                ncoef[Nlv] <- (nsamp - sum(Nig2)/nsamp)/(npop - 1)
                 ncoef[Nlv + 1] <- 1
                 for (i in 1:(Nlv - 1)) {
                   group <- gr[, i]
                   g <- group[match(1:npop, as.integer(gr[, i + 
                     1]))]
                   A <- sum(foo(Nig, g)^2)/sum(foo(Nig, g))
-                  ncoef[i] <- (n - A)/(nlevels(group) - 1)
+                  ncoef[i] <- (nsamp - A)/(nlevels(group) - 1)
                 }
             }
         }
         names(ncoef) <- letters[1:length(ncoef)]
         ncoef
     }
+    
     getVarComp <- function(gr, MSD, Nlv, ncoef) {
+      
+      nsamp <- nrow(gr)
+      ncoef <- getNcoefficient(gr)
+      N <- lapply(gr, tabulate)
+      
         if (Nlv == 1) 
             sigma2 <- c((MSD[1] - MSD[2])/ncoef, MSD[2])
         else {
@@ -94,63 +110,23 @@ knitr::opts_chunk$set(echo = TRUE)
         sigma2
     }
 
-
-repAmova <- function (formula, data = NULL, nperm = 10, is.squared = FALSE) 
-{
-    # Manage left hand side
-    y.nms <- as.character(as.expression(formula[[2]]))
-    # Manage right hand side
-    rhs <- formula[[3]]
-    gr.nms <- as.character(as.expression(rhs))
-    if (length(rhs) > 1) 
-        gr.nms <- unlist(strsplit(gr.nms, "/"))
-    # Set environment
-    data.env <- if (is.null(data)) 
-        environment(formula)
-    else as.environment(data)
-    # Test that rhs are factors
-    if (any(sapply(gr.nms, function(x) !is.factor(get(x, envir = data.env))))) 
-        warning("elements in the rhs of the formula are not all factors")
-    # Load rhs data in gr
-    gr <- as.data.frame(sapply(gr.nms, get, envir = data.env))
-    # load lhs into y
-    y <- get(y.nms, envir = environment(formula))
-    # Sanitize lhs dist/matrix
-    if (any(is.na(y))) 
-        warning("at least one missing value in the distance object.")
-    if (!is.squared) 
-        y <- y^2
-    if (class(y) == "dist") 
-        y <- as.matrix(y)
-    if (!is.matrix(y)) 
-        stop("the lhs of the formula must be either a matrix or an object of class 'dist'.")
-    n <- dim(y)[1]
-    # Number of levels
-    Nlv <- length(gr)
-
-    N <- lapply(gr, tabulate)
-    SSD <- getSSD(y, gr, Nlv, N, n)
-    df <- getDF(gr, Nlv, N, n)
-    MSD <- SSD/df
-    ncoef <- getNcoefficient(gr, Nlv, N, n)
-    sigma2 <- getVarComp(gr, MSD, Nlv, ncoef)
     
-    # Assemble return
-    res <- list(tab = data.frame(SSD = SSD, MSD = MSD, df = df, 
-        row.names = c(names(gr), "Error", "Total")), varcoef = ncoef, 
-        varcomp = sigma2, call = match.call())
-    class(res) <- "amova"
-    
-    # Permutation test
-    if (nperm) {
+permutation_test <- function(nperm, sigma2, y, gr){
+  
+  nsamp <- nrow(gr)
+  # Number of levels
+  Nlv <- length(gr)
+  N <- lapply(gr, tabulate)
+  dfreedom <- getDF(gr, Nlv, N, nsamp)
+
         rSigma2 <- matrix(0, nperm, length(sigma2))
         j <- if (Nlv == 1) 
             1:2
         else Nlv + 1
         for (i in 1:nperm) {
-            rY <- perm.rowscols(y, n)
-            rSSD <- getSSD(rY, gr, Nlv, N, n)
-            rSigma2[i, j] <- getVarComp(gr, rSSD/df, Nlv, ncoef)[j]
+            rY <- perm.rowscols(y, nsamp)
+            rSSD <- getSSD(rY, gr, Nlv, N, nsamp)
+            rSigma2[i, j] <- getVarComp(gr, rSSD/dfreedom, Nlv, ncoef)[j]
         }
         if (Nlv > 1) {
             j <- Nlv
@@ -159,8 +135,8 @@ repAmova <- function (formula, data = NULL, nperm = 10, is.squared = FALSE)
             for (i in 1:nperm) {
                 rind <- unlist(lapply(L, sample))
                 rY <- y[rind, rind]
-                rSSD <- getSSD(rY, gr, Nlv, N, n)
-                rSigma2[i, j] <- getVarComp(gr, rSSD/df, Nlv, ncoef)[j]
+                rSSD <- getSSD(rY, gr, Nlv, N, nsamp)
+                rSigma2[i, j] <- getVarComp(gr, rSSD/dfreedom, Nlv, ncoef)[j]
             }
             if (Nlv > 2) {
                 for (j in (Nlv - 1):2) {
@@ -174,9 +150,9 @@ repAmova <- function (formula, data = NULL, nperm = 10, is.squared = FALSE)
                     rY <- y[rind, rind]
                     rGR <- gr[rind, ]
                     rN <- lapply(rGR, tabulate)
-                    rSSD <- getSSD(rY, rGR, Nlv, rN, n)
-                    rDF <- getDF(rGR, Nlv, rN, n)
-                    rNcoef <- getNcoefficient(rGR, Nlv, rN, n)
+                    rSSD <- getSSD(rY, rGR, Nlv, rN, nsamp)
+                    rDF <- getDF(rGR, Nlv, rN, nsamp)
+                    rNcoef <- getNcoefficient(rGR)
                     rSigma2[i, j] <- getVarComp(gr, rSSD/rDF, Nlv, 
                       rNcoef)[j]
                   }
@@ -189,9 +165,9 @@ repAmova <- function (formula, data = NULL, nperm = 10, is.squared = FALSE)
                 rGR[, 1] <- unlist(mapply(rep, sample(Higr), 
                   each = N2, SIMPLIFY = FALSE))
                 rN <- lapply(rGR, tabulate)
-                rSSD <- getSSD(rY, rGR, Nlv, rN, n)
-                rDF <- getDF(rGR, Nlv, rN, n)
-                rNcoef <- getNcoefficient(rGR, Nlv, rN, n)
+                rSSD <- getSSD(rY, rGR, Nlv, rN, nsamp)
+                rDF <- getDF(rGR, Nlv, rN, nsamp)
+                rNcoef <- getNcoefficient(rGR)
                 rSigma2[i, 1] <- getVarComp(gr, rSSD/rDF, Nlv, rNcoef)[1]
             }
         }
@@ -199,7 +175,71 @@ repAmova <- function (formula, data = NULL, nperm = 10, is.squared = FALSE)
         for (j in 1:(Nlv + 1)) P[j] <- sum(rSigma2[, j] >= sigma2[j])/(nperm + 
             1)
         P[Nlv + 1] <- NA
-        res$varcomp <- data.frame(sigma2 = res$varcomp, P.value = P)
+#        res$varcomp <- data.frame(sigma2 = res$varcomp, P.value = P)
+#        return( data.frame(sigma2 = res$varcomp, P.value = P) )
+        return( P )
+}
+```
+
+
+
+```{r}
+repAmova <- function (formula, data = NULL, nperm = 10, is.squared = FALSE) 
+{
+
+    # Set environment
+    data.env <- if (is.null(data)) 
+    environment(formula)
+    else as.environment(data)
+    
+    # The left hand side is a distance matrix
+    # Manage left hand side
+    y.nms <- as.character(as.expression(formula[[2]]))
+    # load lhs into y
+    y <- get(y.nms, envir = environment(formula))
+    # Sanitize lhs dist/matrix
+    if (any(is.na(y))) 
+        warning("at least one missing value in the distance object.")
+    if (!is.squared) 
+        y <- y^2
+    if (class(y) == "dist") 
+        y <- as.matrix(y)
+    if (!is.matrix(y)) 
+        stop("the lhs of the formula must be either a matrix or an object of class 'dist'.")
+    
+    # Manage right hand side
+    rhs <- formula[[3]]
+    gr.nms <- as.character(as.expression(rhs))
+    if (length(rhs) > 1) 
+        gr.nms <- unlist(strsplit(gr.nms, "/"))
+    # Test that rhs are factors
+    if (any(sapply(gr.nms, function(x) !is.factor(get(x, envir = data.env))))) 
+        warning("elements in the rhs of the formula are not all factors")
+    # Load rhs data in gr
+    gr <- as.data.frame(sapply(gr.nms, get, envir = data.env))
+
+    nsamp <- dim(y)[1]
+    # Number of levels
+    Nlv <- length(gr)
+
+    # AMOVA
+    N <- lapply(gr, tabulate)
+    SSD <- getSSD(y, gr, Nlv, N, nsamp)
+    dfreedom <- getDF(gr, Nlv, N, nsamp)
+    MSD <- SSD/dfreedom
+    ncoef <- getNcoefficient(gr)
+    sigma2 <- getVarComp(gr, MSD, Nlv, ncoef)
+    
+    # Assemble return
+    res <- list(tab = data.frame(SSD = SSD, MSD = MSD, df = dfreedom, 
+        row.names = c(names(gr), "Error", "Total")), varcoef = ncoef, 
+        varcomp = sigma2, call = match.call())
+    class(res) <- "amova"
+    
+    # Permutation test
+    if (nperm) {
+      P.value <- permutation_test(nperm, sigma2, y, gr)
+      res$varcomp <- data.frame(sigma2 = res$varcomp, P.value = P.value)
     }
     
     res
@@ -222,6 +262,7 @@ p <- factor(c(rep(1, 3), rep(2, 4), rep(3, 4), rep(4, 4)))
 #amova(d ~ g, nperm = 100)
 
 #debug(repAmova)
+#undebug(permutation_test)
 
 repAmova(d ~ g/p, nperm = 100) # 2 levels
 repAmova(d ~ p, nperm = 100) # 1 level
